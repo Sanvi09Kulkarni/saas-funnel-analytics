@@ -1,0 +1,8 @@
+venv/
+saas.db
+__pycache__/
+.DS_Store
+.idea/
+*.log
+*.sqlite
+*.duckdb
