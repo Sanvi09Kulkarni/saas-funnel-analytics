@@ -17,7 +17,8 @@ def exec_sql_file(path):
 
 print("Running schema...")
 exec_sql_file(schema_path)
-print("Schema created.")
+con.execute("COMMIT;")
+print("Schema committed.")
 
 print("Running data load...")
 exec_sql_file(load_path)

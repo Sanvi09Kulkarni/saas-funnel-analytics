@@ -1,29 +1,34 @@
--- Churn = users who stop being active after signup
-
-WITH user_activity AS (
-    SELECT
-        u.user_id,
-        MIN(CAST(e.event_time AS DATE)) AS first_event,
-        MAX(CAST(e.event_time AS DATE)) AS last_event
-    FROM users u
-    LEFT JOIN events e
-        ON u.user_id = e.user_id
-    GROUP BY u.user_id
-),
-
-churn_flag AS (
+WITH last_activity AS (
     SELECT
         user_id,
-        CASE
-            WHEN last_event < CURRENT_DATE - INTERVAL 14 DAY
-            THEN 1
-            ELSE 0
-        END AS is_churned
-    FROM user_activity
+        MAX(CAST(event_time AS TIMESTAMP)) AS last_active_at
+    FROM events
+    WHERE event_type = 'feature_use'
+    GROUP BY user_id
+),
+
+dataset_max_date AS (
+    SELECT
+        MAX(CAST(event_time AS TIMESTAMP)) AS max_event_time
+    FROM events
+),
+
+churned_users AS (
+    SELECT
+        u.user_id
+    FROM users u
+    LEFT JOIN last_activity l
+        ON u.user_id = l.user_id
+    CROSS JOIN dataset_max_date d
+    WHERE l.last_active_at < d.max_event_time - INTERVAL 30 DAY
+       OR l.last_active_at IS NULL
 )
 
 SELECT
-    COUNT(*) AS total_users,
-    SUM(is_churned) AS churned_users,
-    ROUND(SUM(is_churned) * 100.0 / COUNT(*), 2) AS churn_rate
-FROM churn_flag;
+    (SELECT COUNT(*) FROM users) AS total_users,
+    (SELECT COUNT(*) FROM churned_users) AS churned_users,
+    ROUND(
+        (SELECT COUNT(*) FROM churned_users) * 100.0 /
+        NULLIF((SELECT COUNT(*) FROM users), 0),
+        2
+    ) AS churn_rate;
